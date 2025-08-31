@@ -154,16 +154,11 @@ export const postBloodPressureDataSchema = z.object({
   timestamp: z.string().refine((val) => !isNaN(Date.parse(val)), 'Invalid timestamp'),
 });
 
-const baseWeightSchema = createInsertSchema(weightRecords, {
-  patientId: (schema) => schema.positive('Patient ID must be positive'),
-  weightKg: (schema) => schema.min(1, 'Weight must be positive').max(1000, 'Weight too high'),
-}).pick({ patientId: true, weightKg: true });
-
-export const postWeightDataSchema = makeApiCompatible(
-  baseWeightSchema.extend({
-    timestamp: z.string().refine((val) => !isNaN(Date.parse(val)), 'Invalid timestamp'),
-  })
-);
+export const postWeightDataSchema = z.object({
+  patientId: z.number().positive('Patient ID must be positive'),
+  weightKg: z.number().min(1, 'Weight must be positive').max(1000, 'Weight too high'),
+  timestamp: z.string().refine((val) => !isNaN(Date.parse(val)), 'Invalid timestamp'),
+});
 
 
 export const patientIdParamSchema = z.object({

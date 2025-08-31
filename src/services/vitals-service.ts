@@ -95,7 +95,7 @@ export class VitalsService {
     const date = new Date(timestamp).toISOString().split('T')[0]; 
     
     // Store individual heart rate reading in database
-    db.insert(heartRateRecords)
+    await db.insert(heartRateRecords)
       .values({
         patientId: data.patientId,
         bpm: data.bpm,
