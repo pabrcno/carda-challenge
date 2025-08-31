@@ -5,7 +5,7 @@ import { createExpressEndpoints, initServer } from '@ts-rest/express';
 import { contract } from './contract';
 import { testConnection, closeConnection } from './db/connection';
 import { VitalsService } from './services/vitals-service';
-import { redisService } from './services/redis-service';
+import { redisRepository } from './db/redis-repository';
 
 import { PatientService, PatientError } from './services/patient-service';
 
@@ -241,7 +241,7 @@ async function startServer() {
       process.exit(1);
     }
 
-    const redisConnected = await redisService.testConnection();
+    const redisConnected = await redisRepository.testConnection();
     if (!redisConnected) {
       console.error('Failed to connect to Redis. Server will not start.');
       process.exit(1);
@@ -260,14 +260,14 @@ async function startServer() {
 
 process.on('SIGINT', async () => {
   console.log('\n🛑 Shutting down server...');
-  await redisService.disconnect();
+  await redisRepository.disconnect();
   await closeConnection();
   process.exit(0);
 });
 
 process.on('SIGTERM', async () => {
   console.log('\n🛑 Shutting down server...');
-  await redisService.disconnect();
+  await redisRepository.disconnect();
   await closeConnection();
   process.exit(0);
 });

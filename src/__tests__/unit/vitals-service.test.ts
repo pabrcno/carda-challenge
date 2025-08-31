@@ -1,5 +1,5 @@
 import { VitalsService } from '../../services/vitals-service';
-import { redisService } from '../../services/redis-service';
+import { redisRepository } from '../../db/redis-repository';
 import { db } from '../../db/connection';
 import { 
   heartRateRecords, 
@@ -18,24 +18,24 @@ jest.mock('../../db/connection', () => ({
   },
 }));
 
-jest.mock('../../services/redis-service', () => ({
-  redisService: {
-    storeHeartRateReading: jest.fn(),
-    updateDailyMinMax: jest.fn(),
+jest.mock('../../db/redis-repository', () => ({
+  redisRepository: {
     getDailyMinMax: jest.fn(),
-    getLatestHeartRate: jest.fn(),
+    setDailyMinMax: jest.fn(),
+    updateDailyMin: jest.fn(),
+    updateDailyMax: jest.fn(),
   },
 }));
 
 describe('VitalsService', () => {
   let vitalsService: VitalsService;
   let mockDb: any;
-  let mockRedisService: any;
+  let mockRedisRepository: any;
 
   beforeEach(() => {
     vitalsService = new VitalsService();
     mockDb = db as any;
-    mockRedisService = redisService as any;
+    mockRedisRepository = redisRepository as any;
     
     // Reset all mocks
     jest.clearAllMocks();
@@ -55,16 +55,11 @@ describe('VitalsService', () => {
       });
 
       // Mock Redis operations
-      mockRedisService.storeHeartRateReading.mockResolvedValue(undefined);
-      mockRedisService.updateDailyMinMax.mockResolvedValue({
-        isNewMin: false,
-        isNewMax: false,
-        isFirstOfDay: false
-      });
+      mockRedisRepository.getDailyMinMax.mockResolvedValue(null);
+      mockRedisRepository.setDailyMinMax.mockResolvedValue(undefined);
 
       await vitalsService.storeHeartRateReading(mockHeartRateData);
 
- 
       expect(mockDb.insert).toHaveBeenCalledWith(heartRateRecords);
       expect(mockDb.insert().values).toHaveBeenCalledWith({
         patientId: 1,
@@ -74,20 +69,20 @@ describe('VitalsService', () => {
       });
     });
 
-   
     it('should update daily min/max when it is the first reading of the day', async () => {
       mockDb.insert.mockReturnValue({
         values: jest.fn().mockReturnValue(undefined)
       });
 
-      mockRedisService.storeHeartRateReading.mockResolvedValue(undefined);
-      mockRedisService.updateDailyMinMax.mockResolvedValue({
+      // Mock the updateDailyMinMax method to return the expected result
+      const mockUpdateDailyMinMax = jest.spyOn(vitalsService as any, 'updateDailyMinMax');
+      mockUpdateDailyMinMax.mockResolvedValue({
         isNewMin: true,
         isNewMax: true,
         isFirstOfDay: true
       });
 
-      mockRedisService.getDailyMinMax.mockResolvedValue({
+      mockRedisRepository.getDailyMinMax.mockResolvedValue({
         min: 72,
         max: 72,
         minTime: '2024-01-15T10:30:00.000Z',
@@ -99,6 +94,13 @@ describe('VitalsService', () => {
       mockUpsert.mockResolvedValue({});
 
       await vitalsService.storeHeartRateReading(mockHeartRateData);
+
+      expect(mockUpdateDailyMinMax).toHaveBeenCalledWith(
+        1,
+        '2024-01-15',
+        72,
+        '2024-01-15T10:30:00.000Z'
+      );
 
       expect(mockUpsert).toHaveBeenCalledWith(
         1,
@@ -115,15 +117,16 @@ describe('VitalsService', () => {
         values: jest.fn().mockReturnValue(undefined)
       });
 
-      mockRedisService.storeHeartRateReading.mockResolvedValue(undefined);
-      mockRedisService.updateDailyMinMax.mockResolvedValue({
+      // Mock the updateDailyMinMax method to return the expected result
+      const mockUpdateDailyMinMax = jest.spyOn(vitalsService as any, 'updateDailyMinMax');
+      mockUpdateDailyMinMax.mockResolvedValue({
         isNewMin: true,
         isNewMax: false,
         isFirstOfDay: false
       });
 
-      mockRedisService.getDailyMinMax.mockResolvedValue({
-        min: 65,
+      mockRedisRepository.getDailyMinMax.mockResolvedValue({
+        min: 72,
         max: 85,
         minTime: '2024-01-15T10:30:00.000Z',
         maxTime: '2024-01-15T09:00:00.000Z'
@@ -134,13 +137,62 @@ describe('VitalsService', () => {
 
       await vitalsService.storeHeartRateReading(mockHeartRateData);
 
+      expect(mockUpdateDailyMinMax).toHaveBeenCalledWith(
+        1,
+        '2024-01-15',
+        72,
+        '2024-01-15T10:30:00.000Z'
+      );
+
+      expect(mockUpsert).toHaveBeenCalledWith(
+        1,
+        '2024-01-15',
+        72,
+        new Date('2024-01-15T10:30:00.000Z'),
+        85,
+        new Date('2024-01-15T09:00:00.000Z')
+      );
+    });
+
+    it('should update daily min/max when new maximum is recorded', async () => {
+      mockDb.insert.mockReturnValue({
+        values: jest.fn().mockReturnValue(undefined)
+      });
+
+      // Mock the updateDailyMinMax method to return the expected result
+      const mockUpdateDailyMinMax = jest.spyOn(vitalsService as any, 'updateDailyMinMax');
+      mockUpdateDailyMinMax.mockResolvedValue({
+        isNewMin: false,
+        isNewMax: true,
+        isFirstOfDay: false
+      });
+
+      mockRedisRepository.getDailyMinMax.mockResolvedValue({
+        min: 65,
+        max: 72,
+        minTime: '2024-01-15T09:00:00.000Z',
+        maxTime: '2024-01-15T10:30:00.000Z'
+      });
+
+      const mockUpsert = jest.spyOn(vitalsService as any, 'upsertHeartRateAggregate');
+      mockUpsert.mockResolvedValue({});
+
+      await vitalsService.storeHeartRateReading(mockHeartRateData);
+
+      expect(mockUpdateDailyMinMax).toHaveBeenCalledWith(
+        1,
+        '2024-01-15',
+        72,
+        '2024-01-15T10:30:00.000Z'
+      );
+
       expect(mockUpsert).toHaveBeenCalledWith(
         1,
         '2024-01-15',
         65,
-        new Date('2024-01-15T10:30:00.000Z'),
-        85,
-        new Date('2024-01-15T09:00:00.000Z')
+        new Date('2024-01-15T09:00:00.000Z'),
+        72,
+        new Date('2024-01-15T10:30:00.000Z')
       );
     });
 
@@ -149,11 +201,12 @@ describe('VitalsService', () => {
         values: jest.fn().mockReturnValue(undefined)
       });
 
-      mockRedisService.storeHeartRateReading.mockResolvedValue(undefined);
-      mockRedisService.updateDailyMinMax.mockResolvedValue({
-        isNewMin: false,
-        isNewMax: false,
-        isFirstOfDay: false
+      // Mock existing daily min/max where new reading doesn't change min/max
+      mockRedisRepository.getDailyMinMax.mockResolvedValue({
+        min: 65,
+        max: 85,
+        minTime: '2024-01-15T09:00:00.000Z',
+        maxTime: '2024-01-15T09:00:00.000Z'
       });
 
       const mockUpsert = jest.spyOn(vitalsService as any, 'upsertHeartRateAggregate');
@@ -161,7 +214,128 @@ describe('VitalsService', () => {
 
       await vitalsService.storeHeartRateReading(mockHeartRateData);
 
+      expect(mockRedisRepository.updateDailyMin).not.toHaveBeenCalled();
+      expect(mockRedisRepository.updateDailyMax).not.toHaveBeenCalled();
       expect(mockUpsert).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('updateDailyMinMax', () => {
+    it('should create new daily min/max for first reading of the day', async () => {
+      mockRedisRepository.getDailyMinMax.mockResolvedValue(null);
+      mockRedisRepository.setDailyMinMax.mockResolvedValue(undefined);
+
+      const result = await vitalsService['updateDailyMinMax'](
+        1,
+        '2024-01-15',
+        72,
+        '2024-01-15T10:30:00.000Z'
+      );
+
+      expect(result).toEqual({
+        isNewMin: true,
+        isNewMax: true,
+        isFirstOfDay: true
+      });
+
+      expect(mockRedisRepository.setDailyMinMax).toHaveBeenCalledWith(
+        1,
+        '2024-01-15',
+        72,
+        72,
+        '2024-01-15T10:30:00.000Z',
+        '2024-01-15T10:30:00.000Z',
+        expect.any(Number)
+      );
+    });
+
+    it('should update min when new reading is lower', async () => {
+      mockRedisRepository.getDailyMinMax.mockResolvedValue({
+        min: 75,
+        max: 85,
+        minTime: '2024-01-15T09:00:00.000Z',
+        maxTime: '2024-01-15T09:00:00.000Z'
+      });
+
+      mockRedisRepository.updateDailyMin.mockResolvedValue(undefined);
+
+      const result = await vitalsService['updateDailyMinMax'](
+        1,
+        '2024-01-15',
+        70,
+        '2024-01-15T10:30:00.000Z'
+      );
+
+      expect(result).toEqual({
+        isNewMin: true,
+        isNewMax: false,
+        isFirstOfDay: false
+      });
+
+      expect(mockRedisRepository.updateDailyMin).toHaveBeenCalledWith(
+        1,
+        '2024-01-15',
+        70,
+        '2024-01-15T10:30:00.000Z',
+        expect.any(Number)
+      );
+    });
+
+    it('should update max when new reading is higher', async () => {
+      mockRedisRepository.getDailyMinMax.mockResolvedValue({
+        min: 65,
+        max: 80,
+        minTime: '2024-01-15T09:00:00.000Z',
+        maxTime: '2024-01-15T09:00:00.000Z'
+      });
+
+      mockRedisRepository.updateDailyMax.mockResolvedValue(undefined);
+
+      const result = await vitalsService['updateDailyMinMax'](
+        1,
+        '2024-01-15',
+        85,
+        '2024-01-15T10:30:00.000Z'
+      );
+
+      expect(result).toEqual({
+        isNewMin: false,
+        isNewMax: true,
+        isFirstOfDay: false
+      });
+
+      expect(mockRedisRepository.updateDailyMax).toHaveBeenCalledWith(
+        1,
+        '2024-01-15',
+        85,
+        '2024-01-15T10:30:00.000Z',
+        expect.any(Number)
+      );
+    });
+
+    it('should not update anything when reading is within existing range', async () => {
+      mockRedisRepository.getDailyMinMax.mockResolvedValue({
+        min: 65,
+        max: 85,
+        minTime: '2024-01-15T09:00:00.000Z',
+        maxTime: '2024-01-15T09:00:00.000Z'
+      });
+
+      const result = await vitalsService['updateDailyMinMax'](
+        1,
+        '2024-01-15',
+        75,
+        '2024-01-15T10:30:00.000Z'
+      );
+
+      expect(result).toEqual({
+        isNewMin: false,
+        isNewMax: false,
+        isFirstOfDay: false
+      });
+
+      expect(mockRedisRepository.updateDailyMin).not.toHaveBeenCalled();
+      expect(mockRedisRepository.updateDailyMax).not.toHaveBeenCalled();
     });
   });
 
@@ -506,4 +680,6 @@ describe('VitalsService', () => {
       expect(result.endDate).toEqual(mockDate);
     });
   });
+
+
 });

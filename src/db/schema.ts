@@ -222,6 +222,8 @@ export const weightChartDataSchema = makeApiCompatible(
   }))
 );
 
+
+
 // Latest heart rate schema - matches Redis HeartRateReading interface
 export const latestHeartRateSchema = z.object({
   patientId: z.number(),
@@ -249,6 +251,7 @@ export type ErrorResponse = z.infer<typeof errorResponseSchema>;
 export type BloodPressureSummary = z.infer<typeof bloodPressureChartDataSchema>[number];
 export type WeightSummary = z.infer<typeof weightChartDataSchema>[number];
 export type HeartRateSummary = z.infer<typeof heartRateChartDataSchema>[number];
+
 
 export type DrizzlePatient = typeof patients.$inferSelect;
 export type DrizzleNewPatient = typeof patients.$inferInsert;
