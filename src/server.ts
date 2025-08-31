@@ -199,7 +199,7 @@ const router = s.router(contract, {
   },
 
 
-  getHeartRateReadings: async ({ params: { patientId, period } }) => {
+  getHeartRateRecords: async ({ params: { patientId, period } }) => {
     try {
       const readings = await vitalsService.getHeartRateReadings(patientId, period);
 
@@ -208,7 +208,7 @@ const router = s.router(contract, {
         body: readings,
       };
     } catch (error) {
-      console.error('Error getting heart rate readings:', error);
+      console.error('Error getting heart rate records:', error);
       return {
         status: 500,
         body: {

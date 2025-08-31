@@ -121,9 +121,9 @@ export const contract = c.router({
   },
 
 
-  getHeartRateReadings: {
+  getHeartRateRecords: {
     method: 'GET',
-    path: '/patients/:patientId/heart-rate/readings/:period',
+    path: '/patients/:patientId/heart-rate/records/:period',
     pathParams: patientIdAndPeriodParamSchema,
     responses: {
       200: z.array(z.object({
@@ -136,7 +136,7 @@ export const contract = c.router({
       404: errorResponseSchema,
       500: errorResponseSchema,
     },
-    summary: 'Get raw heart rate readings for analysis (not shown to patients)',
+    summary: 'Get raw heart rate records for analysis (not shown to patients)',
   },
 });
 

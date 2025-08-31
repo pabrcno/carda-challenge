@@ -70,9 +70,6 @@ export const heartRateRecords = pgTable('heart_rate_records', {
   index('heart_rate_records_patient_date_idx').on(table.patientId, table.recordedAt),
 ]);
 
-// =============================================================================
-// RELATIONS
-// =============================================================================
 
 export const patientsRelations = relations(patients, ({ many }) => ({
   heartRateAggregates: many(heartRateAggregates),
@@ -144,28 +141,18 @@ export const insertHeartRateRecordSchema = createInsertSchema(heartRateRecords);
 export const updateHeartRateRecordSchema = createUpdateSchema(heartRateRecords);
 
 
-const baseHeartRateSchema = createInsertSchema(heartRateRecords, {
-  patientId: (schema) => schema.positive('Patient ID must be positive'),
-  bpm: (schema) => schema.min(20, 'Heart rate must be at least 20 BPM').max(300, 'Heart rate must not exceed 300 BPM'),
-}).pick({ patientId: true, bpm: true });
+export const postHeartRateDataSchema = z.object({
+  patientId: z.number().positive('Patient ID must be positive'),
+  bpm: z.number().min(20, 'Heart rate must be at least 20 BPM').max(300, 'Heart rate must not exceed 300 BPM'),
+  timestamp: z.string().refine((val) => !isNaN(Date.parse(val)), 'Invalid timestamp'),
+});
 
-export const postHeartRateDataSchema = makeApiCompatible(
-  baseHeartRateSchema.extend({
-    timestamp: z.string().refine((val) => !isNaN(Date.parse(val)), 'Invalid timestamp'),
-  })
-);
-
-const baseBloodPressureSchema = createInsertSchema(bloodPressureRecords, {
-  patientId: (schema) => schema.positive('Patient ID must be positive'),
-  systolic: (schema) => schema.min(50, 'Systolic pressure too low').max(300, 'Systolic pressure too high'),
-  diastolic: (schema) => schema.min(30, 'Diastolic pressure too low').max(200, 'Diastolic pressure too high'),
-}).pick({ patientId: true, systolic: true, diastolic: true });
-
-export const postBloodPressureDataSchema = makeApiCompatible(
-  baseBloodPressureSchema.extend({
-    timestamp: z.string().refine((val) => !isNaN(Date.parse(val)), 'Invalid timestamp'),
-  })
-);
+export const postBloodPressureDataSchema = z.object({
+  patientId: z.number().positive('Patient ID must be positive'),
+  systolic: z.number().min(50, 'Systolic pressure too low').max(300, 'Systolic pressure too high'),
+  diastolic: z.number().min(30, 'Diastolic pressure too low').max(200, 'Diastolic pressure too high'),
+  timestamp: z.string().refine((val) => !isNaN(Date.parse(val)), 'Invalid timestamp'),
+});
 
 const baseWeightSchema = createInsertSchema(weightRecords, {
   patientId: (schema) => schema.positive('Patient ID must be positive'),
@@ -217,7 +204,6 @@ export const heartRateChartDataSchema = makeApiCompatible(
     date: z.string(),
     min: z.number(),
     max: z.number(),
-    avg: z.number(),
   }))
 );
 

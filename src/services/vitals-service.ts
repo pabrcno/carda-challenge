@@ -184,7 +184,7 @@ export class VitalsService {
 
   async getHeartRateChartData(patientId: number, period: ChartPeriod): Promise<HeartRateSummary[]> {
     const { startDate } = this.getDateRange(period);
-    const startDateString = startDate.toISOString().split('T')[0]; // YYYY-MM-DD format
+    const startDateString = startDate.toISOString().split('T')[0]; 
     
     const aggregates = await db.select()
       .from(heartRateAggregates)
