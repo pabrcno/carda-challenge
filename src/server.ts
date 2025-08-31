@@ -6,6 +6,8 @@ import { contract } from './contract';
 import { testConnection, closeConnection } from './db/connection';
 import { VitalsService } from './services/vitals-service';
 import { redisRepository } from './db/redis-repository';
+import { QueueService } from './queue/queue-service';
+import { QueueWorker } from './queue/worker';
 
 import { PatientService, PatientError } from './services/patient-service';
 
@@ -18,6 +20,8 @@ const s = initServer();
 
 const patientService = new PatientService();
 const vitalsService = new VitalsService();
+const queueService = new QueueService();
+const queueWorker = new QueueWorker();
 
 app.use(cors());
 app.use(express.json());
@@ -64,18 +68,17 @@ const router = s.router(contract, {
 
   postHeartRate: async ({ body }) => {
     try {
-     
-
-      await vitalsService.storeHeartRateReading(body);
+      const result = await queueService.addHeartRateJob(body);
 
       return {
-        status: 201,
+        status: 202,
         body: {
-          message: 'Heart rate data stored and processed',
+          message: 'Heart rate data queued for processing',
+          jobId: result.id,
         },
       };
     } catch (error) {
-      console.error('Error posting heart rate data:', error);
+      console.error('Error queuing heart rate data:', error);
       return {
         status: 500,
         body: {
@@ -88,7 +91,6 @@ const router = s.router(contract, {
 
   postBloodPressure: async ({ body }) => {
     try {
-     
       await vitalsService.storeBloodPressureReading(body);
 
       return {
@@ -247,10 +249,13 @@ async function startServer() {
       process.exit(1);
     }
 
+    await queueWorker.start();
+
     app.listen(PORT, () => {
       console.log(`🚀 Server running on http://localhost:${PORT}`);
       console.log(`📋 API documentation available at http://localhost:${PORT}/health`);
       console.log(`⏰ Redis TTL set to 24 hours for automatic data cleanup`);
+      console.log(`🫀 Heart rate queue worker started`);
     });
   } catch (error) {
     console.error('Failed to start server:', error);
@@ -260,6 +265,7 @@ async function startServer() {
 
 process.on('SIGINT', async () => {
   console.log('\n🛑 Shutting down server...');
+  await queueWorker.stop();
   await redisRepository.disconnect();
   await closeConnection();
   process.exit(0);
@@ -267,6 +273,7 @@ process.on('SIGINT', async () => {
 
 process.on('SIGTERM', async () => {
   console.log('\n🛑 Shutting down server...');
+  await queueWorker.stop();
   await redisRepository.disconnect();
   await closeConnection();
   process.exit(0);

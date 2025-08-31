@@ -20,6 +20,39 @@ import {
 import { redisRepository } from '../db/redis-repository';
 
 export class VitalsService {
+  // Remove QueueService dependency - this should be a pure business logic service
+
+  async processHeartRateReading(data: PostHeartRateData): Promise<void> {
+    const timestamp = data.timestamp;
+    const date = new Date(timestamp).toISOString().split('T')[0]; 
+    
+    await db.insert(heartRateRecords)
+      .values({
+        patientId: data.patientId,
+        bpm: data.bpm,
+        recordedAt: new Date(timestamp),
+        createdAt: new Date(),
+      });
+
+    const dailyMinMax = await this.updateDailyMinMaxCache(
+      data.patientId,
+      date,
+      data.bpm,
+      timestamp
+    );
+    
+    if (!dailyMinMax) return;
+    
+    await this.upsertHeartRateAggregate(
+      data.patientId,
+      date,
+      dailyMinMax.min,
+      new Date(dailyMinMax.minTime),
+      dailyMinMax.max,
+      new Date(dailyMinMax.maxTime),
+    );
+  }
+
   async storeBloodPressureReading(data: PostBloodPressureData): Promise<DrizzleBloodPressureRecord> {
     const recordedAt = new Date(data.timestamp);
     
@@ -90,40 +123,7 @@ export class VitalsService {
     }));
   }
 
-  async storeHeartRateReading(data: PostHeartRateData): Promise<void> {
-    const timestamp = data.timestamp;
-    const date = new Date(timestamp).toISOString().split('T')[0]; 
-    
-    // Store individual heart rate reading in database
-    await db.insert(heartRateRecords)
-      .values({
-        patientId: data.patientId,
-        bpm: data.bpm,
-        recordedAt: new Date(timestamp),
-        createdAt: new Date(),
-      });
 
-        // Handle daily min/max logic
-    const dailyMinMax = await this.updateDailyMinMaxCache(
-      data.patientId,
-      date,
-      data.bpm,
-      timestamp
-    );
-    
-    // Only update database if there are changes
-    if (!dailyMinMax) return;
-    
-    // Update the database aggregate
-    await this.upsertHeartRateAggregate(
-      data.patientId,
-      date,
-      dailyMinMax.min,
-      new Date(dailyMinMax.minTime),
-      dailyMinMax.max,
-      new Date(dailyMinMax.maxTime),
-    );
-  }
 
   private async updateDailyMinMaxCache(
     patientId: number, 
@@ -155,7 +155,6 @@ export class VitalsService {
     if (!isNewMin && !isNewMax) return null;
   
 
-    // Update min if new minimum
     if (isNewMin) {
       await redisRepository.updateDailyMin(
         patientId,
@@ -166,7 +165,6 @@ export class VitalsService {
       );
     }
     
-    // Update max if new maximum
     if (isNewMax) {
       await redisRepository.updateDailyMax(
         patientId,

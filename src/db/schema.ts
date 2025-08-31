@@ -5,7 +5,7 @@ import { z } from 'zod';
 
 
 
-// NOTE: IDs are serial just for this test project. In production, we should use UUIDs.
+
 
 export const patients = pgTable('patients', {
   id: serial('id').primaryKey(),
@@ -57,7 +57,6 @@ export const weightRecords = pgTable('weight_records', {
   index('weight_recorded_at_idx').on(table.recordedAt),
 ]);
 
-// NEW TABLE: Store all individual heart rate records for analysis
 export const heartRateRecords = pgTable('heart_rate_records', {
   id: serial('id').primaryKey(),
   patientId: integer('patient_id').notNull().references(() => patients.id, { onDelete: 'cascade' }),
@@ -107,11 +106,7 @@ export const heartRateRecordsRelations = relations(heartRateRecords, ({ one }) =
 }));
 
 
-// SINGLE SOURCE OF TRUTH: Patient schemas using drizzle-zod as the foundation
-// Using type assertions to make them compatible with ts-rest
-
 function makeApiCompatible<T = any>(schema: any): z.ZodType<T> {
-  
   return schema as z.ZodType<T>;
 }
 
@@ -153,7 +148,6 @@ export const postBloodPressureDataSchema = z.object({
   diastolic: z.number().min(30, 'Diastolic pressure too low').max(200, 'Diastolic pressure too high'),
   timestamp: z.string().refine((val) => !isNaN(Date.parse(val)), 'Invalid timestamp'),
 });
-
 export const postWeightDataSchema = z.object({
   patientId: z.number().positive('Patient ID must be positive'),
   weightKg: z.number().min(1, 'Weight must be positive').max(1000, 'Weight too high'),
@@ -219,14 +213,12 @@ export const weightChartDataSchema = makeApiCompatible(
 
 
 
-// Latest heart rate schema - matches Redis HeartRateReading interface
 export const latestHeartRateSchema = z.object({
   patientId: z.number(),
   bpm: z.number(),
   timestamp: z.string(),
 });
 
-// Common response schemas
 export const healthResponseSchema = z.object({
   status: z.string(),
   timestamp: z.string(),

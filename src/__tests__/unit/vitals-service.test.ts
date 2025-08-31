@@ -41,7 +41,7 @@ describe('VitalsService', () => {
     jest.clearAllMocks();
   });
 
-  describe('storeHeartRateReading', () => {
+  describe('processHeartRateReading', () => {
     const mockHeartRateData = {
       patientId: 1,
       bpm: 72,
@@ -58,7 +58,7 @@ describe('VitalsService', () => {
       const mockUpdateDailyMinMaxCache = jest.spyOn(vitalsService as any, 'updateDailyMinMaxCache');
       mockUpdateDailyMinMaxCache.mockResolvedValue(null);
 
-      await vitalsService.storeHeartRateReading(mockHeartRateData);
+      await vitalsService.processHeartRateReading(mockHeartRateData);
 
       expect(mockDb.insert).toHaveBeenCalledWith(heartRateRecords);
       expect(mockDb.insert().values).toHaveBeenCalledWith({
@@ -87,7 +87,7 @@ describe('VitalsService', () => {
       const mockUpsert = jest.spyOn(vitalsService as any, 'upsertHeartRateAggregate');
       mockUpsert.mockResolvedValue({});
 
-      await vitalsService.storeHeartRateReading(mockHeartRateData);
+      await vitalsService.processHeartRateReading(mockHeartRateData);
 
       expect(mockUpdateDailyMinMaxCache).toHaveBeenCalledWith(
         1,
@@ -123,7 +123,7 @@ describe('VitalsService', () => {
       const mockUpsert = jest.spyOn(vitalsService as any, 'upsertHeartRateAggregate');
       mockUpsert.mockResolvedValue({});
 
-      await vitalsService.storeHeartRateReading(mockHeartRateData);
+      await vitalsService.processHeartRateReading(mockHeartRateData);
 
       expect(mockUpdateDailyMinMaxCache).toHaveBeenCalledWith(
         1,
@@ -159,7 +159,7 @@ describe('VitalsService', () => {
       const mockUpsert = jest.spyOn(vitalsService as any, 'upsertHeartRateAggregate');
       mockUpsert.mockResolvedValue({});
 
-      await vitalsService.storeHeartRateReading(mockHeartRateData);
+      await vitalsService.processHeartRateReading(mockHeartRateData);
 
       expect(mockUpdateDailyMinMaxCache).toHaveBeenCalledWith(
         1,
@@ -190,7 +190,7 @@ describe('VitalsService', () => {
       const mockUpsert = jest.spyOn(vitalsService as any, 'upsertHeartRateAggregate');
       mockUpsert.mockResolvedValue({});
 
-      await vitalsService.storeHeartRateReading(mockHeartRateData);
+      await vitalsService.processHeartRateReading(mockHeartRateData);
 
       expect(mockUpdateDailyMinMaxCache).toHaveBeenCalledWith(
         1,
