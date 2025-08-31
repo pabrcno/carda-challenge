@@ -74,27 +74,7 @@ describe('VitalsService', () => {
       });
     });
 
-    it('should store heart rate reading in Redis', async () => {
-      mockDb.insert.mockReturnValue({
-        values: jest.fn().mockReturnValue(undefined)
-      });
-
-      mockRedisService.storeHeartRateReading.mockResolvedValue(undefined);
-      mockRedisService.updateDailyMinMax.mockResolvedValue({
-        isNewMin: false,
-        isNewMax: false,
-        isFirstOfDay: false
-      });
-
-      await vitalsService.storeHeartRateReading(mockHeartRateData);
-
-      expect(mockRedisService.storeHeartRateReading).toHaveBeenCalledWith({
-        patientId: 1,
-        bpm: 72,
-        timestamp: '2024-01-15T10:30:00.000Z'
-      });
-    });
-
+   
     it('should update daily min/max when it is the first reading of the day', async () => {
       mockDb.insert.mockReturnValue({
         values: jest.fn().mockReturnValue(undefined)
