@@ -114,10 +114,8 @@ export class VitalsService {
     
     const shouldUpdateDB = isNewMin || isNewMax || isFirstOfDay;
     
-    if (!shouldUpdateDB) {
-      this.logNonUpdateReason(data.patientId, data.bpm, date, isFirstOfDay);
-      return;
-    }
+    if (!shouldUpdateDB) return;
+ 
     
     const dailyMinMax = await redisService.getDailyMinMax(data.patientId, date);
     
@@ -136,51 +134,7 @@ export class VitalsService {
       new Date(dailyMinMax.maxTime),
 
     );
-    
-    this.logUpdateReason(data.patientId, data.bpm, date, isFirstOfDay, isNewMin, isNewMax, dailyMinMax);
   }
-
-  private logNonUpdateReason(
-    patientId: number, 
-    bpm: number, 
-    date: string, 
-    isFirstOfDay: boolean, 
-  ): void {
-    if (isFirstOfDay) {
-      console.log(`🛡️  Prevented duplicate DB entry for patient ${patientId} on ${date} - Redis TTL/calendar day boundary mismatch`);
-      return;
-    }
-    
-    console.log(`⏭️  Heart rate ${bpm} for patient ${patientId} is not a new daily min/max - Redis updated, DB unchanged`);
-  }
-
-
-  private logUpdateReason(
-    patientId: number,
-    bpm: number,
-    date: string,
-    isFirstOfDay: boolean,
-    isNewMin: boolean,
-    isNewMax: boolean,
-    dailyMinMax: { min: number; max: number },
-   
-  ): void {
-    if (isFirstOfDay) {
-      console.log(`🌅 Created first heart rate aggregate for patient ${patientId} on ${date} - BPM: ${bpm}`);
-      return;
-    }
-    
-      if (isFirstOfDay) {
-      console.log(`🔄 Prevented duplicate: Found existing aggregate for patient ${patientId} on ${date} despite Redis indicating first of day`);
-      return;
-    }
-    
-    const reasons = [];
-    if (isNewMin) reasons.push('new min');
-    if (isNewMax) reasons.push('new max');
-    console.log(`📊 Updated heart rate aggregate for patient ${patientId} on ${date} (${reasons.join(', ')}) - Min: ${dailyMinMax.min}, Max: ${dailyMinMax.max}`);
-  }
-
 
   async getHeartRateChartData(patientId: number, period: ChartPeriod): Promise<HeartRateSummary[]> {
     const { startDate } = this.getDateRange(period);

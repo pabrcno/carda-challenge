@@ -1,8 +1,5 @@
 import { db } from '../db/connection';
 import { patients, type DrizzleNewPatient } from '../db/schema';
-import { eq } from 'drizzle-orm';
-
-// Custom error class for better error handling
 export class PatientError extends Error {
   constructor(
     message: string,
@@ -20,9 +17,7 @@ export class PatientService {
       const newPatient = await db.insert(patients).values(patient).returning();
       return newPatient[0];
     } catch (error: any) {
-      // Handle PostgreSQL unique violation error
       if (error.code === '23505') {
-        // Check if it's specifically an email violation
         if (error.constraint && error.constraint.includes('email')) {
           throw new PatientError(
             'A patient with this email address already exists',
@@ -30,7 +25,6 @@ export class PatientService {
             409
           );
         }
-        // Generic unique constraint violation
         throw new PatientError(
           'A patient with these details already exists',
           'PATIENT_ALREADY_EXISTS',
