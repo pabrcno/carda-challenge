@@ -103,8 +103,8 @@ export class VitalsService {
         createdAt: new Date(),
       });
 
-    // Handle daily min/max logic
-    const { isNewMin, isNewMax, isFirstOfDay } = await this.updateDailyMinMax(
+        // Handle daily min/max logic
+    const dailyMinMax = await this.updateDailyMinMaxCache(
       data.patientId,
       date,
       data.bpm,
@@ -112,17 +112,7 @@ export class VitalsService {
     );
     
     // Only update database if there are changes
-    const shouldUpdateDB = isNewMin || isNewMax || isFirstOfDay;
-    
-    if (!shouldUpdateDB) return;
- 
-    // Get the updated daily min/max from Redis
-    const dailyMinMax = await redisRepository.getDailyMinMax(data.patientId, date);
-    
-    if (!dailyMinMax) {
-      console.log(`⚠️  No daily min/max data found for patient ${data.patientId} on ${date}`);
-      return;
-    }
+    if (!dailyMinMax) return;
     
     // Update the database aggregate
     await this.upsertHeartRateAggregate(
@@ -135,17 +125,17 @@ export class VitalsService {
     );
   }
 
-  private async updateDailyMinMax(
+  private async updateDailyMinMaxCache(
     patientId: number, 
     date: string, 
     bpm: number, 
     timestamp: string
-  ): Promise<{isNewMin: boolean, isNewMax: boolean, isFirstOfDay: boolean}> {
+  ): Promise<{min: number, max: number, minTime: string, maxTime: string} | null> {
     const current = await redisRepository.getDailyMinMax(patientId, date);
     const ttlSeconds = this.getSecondsUntilEndOfNextDay();
 
     if (!current) {
-      // First reading of the day
+    
       await redisRepository.setDailyMinMax(
         patientId,
         date,
@@ -156,17 +146,17 @@ export class VitalsService {
         ttlSeconds
       );
       
-      return { isNewMin: true, isNewMax: true, isFirstOfDay: true };
+      return { min: bpm, max: bpm, minTime: timestamp, maxTime: timestamp };
     }
 
-    const updates = {
-      isNewMin: bpm < current.min,
-      isNewMax: bpm > current.max,
-      isFirstOfDay: false
-    };
+    const isNewMin = bpm < current.min;
+    const isNewMax = bpm > current.max;
+
+    if (!isNewMin && !isNewMax) return null;
+  
 
     // Update min if new minimum
-    if (updates.isNewMin) {
+    if (isNewMin) {
       await redisRepository.updateDailyMin(
         patientId,
         date,
@@ -177,7 +167,7 @@ export class VitalsService {
     }
     
     // Update max if new maximum
-    if (updates.isNewMax) {
+    if (isNewMax) {
       await redisRepository.updateDailyMax(
         patientId,
         date,
@@ -187,7 +177,13 @@ export class VitalsService {
       );
     }
     
-    return updates;
+  
+    return {
+      min: isNewMin ? bpm : current.min,
+      max: isNewMax ? bpm : current.max,
+      minTime: isNewMin ? timestamp : current.minTime,
+      maxTime: isNewMax ? timestamp : current.maxTime,
+    };
   }
 
   async getHeartRateChartData(patientId: number, period: ChartPeriod): Promise<HeartRateSummary[]> {

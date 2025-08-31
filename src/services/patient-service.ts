@@ -32,7 +32,6 @@ export class PatientService {
         );
       }
       
-      // Re-throw other errors
       throw error;
     }
   }

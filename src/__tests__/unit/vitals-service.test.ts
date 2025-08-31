@@ -54,9 +54,9 @@ describe('VitalsService', () => {
         values: jest.fn().mockReturnValue(undefined)
       });
 
-      // Mock Redis operations
-      mockRedisRepository.getDailyMinMax.mockResolvedValue(null);
-      mockRedisRepository.setDailyMinMax.mockResolvedValue(undefined);
+      // Mock Redis operations - no updates needed
+      const mockUpdateDailyMinMaxCache = jest.spyOn(vitalsService as any, 'updateDailyMinMaxCache');
+      mockUpdateDailyMinMaxCache.mockResolvedValue(null);
 
       await vitalsService.storeHeartRateReading(mockHeartRateData);
 
@@ -74,15 +74,9 @@ describe('VitalsService', () => {
         values: jest.fn().mockReturnValue(undefined)
       });
 
-      // Mock the updateDailyMinMax method to return the expected result
-      const mockUpdateDailyMinMax = jest.spyOn(vitalsService as any, 'updateDailyMinMax');
-      mockUpdateDailyMinMax.mockResolvedValue({
-        isNewMin: true,
-        isNewMax: true,
-        isFirstOfDay: true
-      });
-
-      mockRedisRepository.getDailyMinMax.mockResolvedValue({
+      // Mock the updateDailyMinMaxCache method to return the expected result
+      const mockUpdateDailyMinMaxCache = jest.spyOn(vitalsService as any, 'updateDailyMinMaxCache');
+      mockUpdateDailyMinMaxCache.mockResolvedValue({
         min: 72,
         max: 72,
         minTime: '2024-01-15T10:30:00.000Z',
@@ -95,7 +89,7 @@ describe('VitalsService', () => {
 
       await vitalsService.storeHeartRateReading(mockHeartRateData);
 
-      expect(mockUpdateDailyMinMax).toHaveBeenCalledWith(
+      expect(mockUpdateDailyMinMaxCache).toHaveBeenCalledWith(
         1,
         '2024-01-15',
         72,
@@ -117,16 +111,10 @@ describe('VitalsService', () => {
         values: jest.fn().mockReturnValue(undefined)
       });
 
-      // Mock the updateDailyMinMax method to return the expected result
-      const mockUpdateDailyMinMax = jest.spyOn(vitalsService as any, 'updateDailyMinMax');
-      mockUpdateDailyMinMax.mockResolvedValue({
-        isNewMin: true,
-        isNewMax: false,
-        isFirstOfDay: false
-      });
-
-      mockRedisRepository.getDailyMinMax.mockResolvedValue({
-        min: 72,
+      // Mock the updateDailyMinMaxCache method to return the expected result
+      const mockUpdateDailyMinMaxCache = jest.spyOn(vitalsService as any, 'updateDailyMinMaxCache');
+      mockUpdateDailyMinMaxCache.mockResolvedValue({
+        min: 70,
         max: 85,
         minTime: '2024-01-15T10:30:00.000Z',
         maxTime: '2024-01-15T09:00:00.000Z'
@@ -137,7 +125,7 @@ describe('VitalsService', () => {
 
       await vitalsService.storeHeartRateReading(mockHeartRateData);
 
-      expect(mockUpdateDailyMinMax).toHaveBeenCalledWith(
+      expect(mockUpdateDailyMinMaxCache).toHaveBeenCalledWith(
         1,
         '2024-01-15',
         72,
@@ -147,7 +135,7 @@ describe('VitalsService', () => {
       expect(mockUpsert).toHaveBeenCalledWith(
         1,
         '2024-01-15',
-        72,
+        70,
         new Date('2024-01-15T10:30:00.000Z'),
         85,
         new Date('2024-01-15T09:00:00.000Z')
@@ -159,15 +147,9 @@ describe('VitalsService', () => {
         values: jest.fn().mockReturnValue(undefined)
       });
 
-      // Mock the updateDailyMinMax method to return the expected result
-      const mockUpdateDailyMinMax = jest.spyOn(vitalsService as any, 'updateDailyMinMax');
-      mockUpdateDailyMinMax.mockResolvedValue({
-        isNewMin: false,
-        isNewMax: true,
-        isFirstOfDay: false
-      });
-
-      mockRedisRepository.getDailyMinMax.mockResolvedValue({
+      // Mock the updateDailyMinMaxCache method to return the expected result
+      const mockUpdateDailyMinMaxCache = jest.spyOn(vitalsService as any, 'updateDailyMinMaxCache');
+      mockUpdateDailyMinMaxCache.mockResolvedValue({
         min: 65,
         max: 72,
         minTime: '2024-01-15T09:00:00.000Z',
@@ -179,7 +161,7 @@ describe('VitalsService', () => {
 
       await vitalsService.storeHeartRateReading(mockHeartRateData);
 
-      expect(mockUpdateDailyMinMax).toHaveBeenCalledWith(
+      expect(mockUpdateDailyMinMaxCache).toHaveBeenCalledWith(
         1,
         '2024-01-15',
         72,
@@ -201,31 +183,31 @@ describe('VitalsService', () => {
         values: jest.fn().mockReturnValue(undefined)
       });
 
-      // Mock existing daily min/max where new reading doesn't change min/max
-      mockRedisRepository.getDailyMinMax.mockResolvedValue({
-        min: 65,
-        max: 85,
-        minTime: '2024-01-15T09:00:00.000Z',
-        maxTime: '2024-01-15T09:00:00.000Z'
-      });
+      // Mock updateDailyMinMaxCache to return null (no updates needed)
+      const mockUpdateDailyMinMaxCache = jest.spyOn(vitalsService as any, 'updateDailyMinMaxCache');
+      mockUpdateDailyMinMaxCache.mockResolvedValue(null);
 
       const mockUpsert = jest.spyOn(vitalsService as any, 'upsertHeartRateAggregate');
       mockUpsert.mockResolvedValue({});
 
       await vitalsService.storeHeartRateReading(mockHeartRateData);
 
-      expect(mockRedisRepository.updateDailyMin).not.toHaveBeenCalled();
-      expect(mockRedisRepository.updateDailyMax).not.toHaveBeenCalled();
+      expect(mockUpdateDailyMinMaxCache).toHaveBeenCalledWith(
+        1,
+        '2024-01-15',
+        72,
+        '2024-01-15T10:30:00.000Z'
+      );
       expect(mockUpsert).not.toHaveBeenCalled();
     });
   });
 
-  describe('updateDailyMinMax', () => {
+  describe('updateDailyMinMaxCache', () => {
     it('should create new daily min/max for first reading of the day', async () => {
       mockRedisRepository.getDailyMinMax.mockResolvedValue(null);
       mockRedisRepository.setDailyMinMax.mockResolvedValue(undefined);
 
-      const result = await vitalsService['updateDailyMinMax'](
+      const result = await vitalsService['updateDailyMinMaxCache'](
         1,
         '2024-01-15',
         72,
@@ -233,9 +215,10 @@ describe('VitalsService', () => {
       );
 
       expect(result).toEqual({
-        isNewMin: true,
-        isNewMax: true,
-        isFirstOfDay: true
+        min: 72,
+        max: 72,
+        minTime: '2024-01-15T10:30:00.000Z',
+        maxTime: '2024-01-15T10:30:00.000Z'
       });
 
       expect(mockRedisRepository.setDailyMinMax).toHaveBeenCalledWith(
@@ -259,7 +242,7 @@ describe('VitalsService', () => {
 
       mockRedisRepository.updateDailyMin.mockResolvedValue(undefined);
 
-      const result = await vitalsService['updateDailyMinMax'](
+      const result = await vitalsService['updateDailyMinMaxCache'](
         1,
         '2024-01-15',
         70,
@@ -267,9 +250,10 @@ describe('VitalsService', () => {
       );
 
       expect(result).toEqual({
-        isNewMin: true,
-        isNewMax: false,
-        isFirstOfDay: false
+        min: 70,
+        max: 85,
+        minTime: '2024-01-15T10:30:00.000Z',
+        maxTime: '2024-01-15T09:00:00.000Z'
       });
 
       expect(mockRedisRepository.updateDailyMin).toHaveBeenCalledWith(
@@ -291,7 +275,7 @@ describe('VitalsService', () => {
 
       mockRedisRepository.updateDailyMax.mockResolvedValue(undefined);
 
-      const result = await vitalsService['updateDailyMinMax'](
+      const result = await vitalsService['updateDailyMinMaxCache'](
         1,
         '2024-01-15',
         85,
@@ -299,9 +283,10 @@ describe('VitalsService', () => {
       );
 
       expect(result).toEqual({
-        isNewMin: false,
-        isNewMax: true,
-        isFirstOfDay: false
+        min: 65,
+        max: 85,
+        minTime: '2024-01-15T09:00:00.000Z',
+        maxTime: '2024-01-15T10:30:00.000Z'
       });
 
       expect(mockRedisRepository.updateDailyMax).toHaveBeenCalledWith(
@@ -313,7 +298,7 @@ describe('VitalsService', () => {
       );
     });
 
-    it('should not update anything when reading is within existing range', async () => {
+    it('should return null when reading is within existing range', async () => {
       mockRedisRepository.getDailyMinMax.mockResolvedValue({
         min: 65,
         max: 85,
@@ -321,21 +306,50 @@ describe('VitalsService', () => {
         maxTime: '2024-01-15T09:00:00.000Z'
       });
 
-      const result = await vitalsService['updateDailyMinMax'](
+      const result = await vitalsService['updateDailyMinMaxCache'](
         1,
         '2024-01-15',
         75,
         '2024-01-15T10:30:00.000Z'
       );
 
-      expect(result).toEqual({
-        isNewMin: false,
-        isNewMax: false,
-        isFirstOfDay: false
-      });
-
+      expect(result).toBeNull();
       expect(mockRedisRepository.updateDailyMin).not.toHaveBeenCalled();
       expect(mockRedisRepository.updateDailyMax).not.toHaveBeenCalled();
+    });
+
+    it('should update both min and max when reading is both lower and higher than current range', async () => {
+      mockRedisRepository.getDailyMinMax.mockResolvedValue({
+        min: 70,
+        max: 80,
+        minTime: '2024-01-15T09:00:00.000Z',
+        maxTime: '2024-01-15T09:00:00.000Z'
+      });
+
+      mockRedisRepository.updateDailyMin.mockResolvedValue(undefined);
+      mockRedisRepository.updateDailyMax.mockResolvedValue(undefined);
+
+      const result = await vitalsService['updateDailyMinMaxCache'](
+        1,
+        '2024-01-15',
+        65, // Lower than current min
+        '2024-01-15T10:30:00.000Z'
+      );
+
+      expect(result).toEqual({
+        min: 65,
+        max: 80,
+        minTime: '2024-01-15T10:30:00.000Z',
+        maxTime: '2024-01-15T09:00:00.000Z'
+      });
+
+      expect(mockRedisRepository.updateDailyMin).toHaveBeenCalledWith(
+        1,
+        '2024-01-15',
+        65,
+        '2024-01-15T10:30:00.000Z',
+        expect.any(Number)
+      );
     });
   });
 
