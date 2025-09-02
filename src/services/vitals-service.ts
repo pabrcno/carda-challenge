@@ -20,8 +20,7 @@ import {
 import { redisRepository } from '../db/redis-repository';
 
 export class VitalsService {
-  // Remove QueueService dependency - this should be a pure business logic service
-
+  
   async processHeartRateReading(data: PostHeartRateData): Promise<void> {
     const timestamp = data.timestamp;
     const date = new Date(timestamp).toISOString().split('T')[0]; 
@@ -50,6 +49,118 @@ export class VitalsService {
       new Date(dailyMinMax.minTime),
       dailyMinMax.max,
       new Date(dailyMinMax.maxTime),
+    );
+  }
+
+  async processHeartRateBatch(readings: PostHeartRateData[]): Promise<void> {
+    if (readings.length === 0) return;
+    
+    console.log(`🔄 Processing batch of ${readings.length} heart rate readings`);
+    
+    // Group readings by patient and date for efficient processing
+    const readingsByPatientAndDate = new Map<string, PostHeartRateData[]>();
+    
+    for (const reading of readings) {
+      const date = new Date(reading.timestamp).toISOString().split('T')[0];
+      const key = `${reading.patientId}_${date}`;
+      
+      if (!readingsByPatientAndDate.has(key)) {
+        readingsByPatientAndDate.set(key, []);
+      }
+      readingsByPatientAndDate.get(key)!.push(reading);
+    }
+    
+    // Process each group
+    for (const [key, groupReadings] of readingsByPatientAndDate) {
+      const [patientIdStr, date] = key.split('_');
+      const patientId = parseInt(patientIdStr);
+      
+      // Bulk insert all readings for this patient/date
+      const recordsToInsert = groupReadings.map(reading => ({
+        patientId: reading.patientId,
+        bpm: reading.bpm,
+        recordedAt: new Date(reading.timestamp),
+        createdAt: new Date(),
+      }));
+      
+      await db.insert(heartRateRecords).values(recordsToInsert);
+      
+      // Update daily min/max cache for this patient/date
+      await this.updateDailyMinMaxCacheForBatch(patientId, date, groupReadings);
+    }
+    
+    console.log(`✅ Batch processing completed for ${readings.length} readings across ${readingsByPatientAndDate.size} patient/date groups`);
+  }
+
+  private async updateDailyMinMaxCacheForBatch(
+    patientId: number, 
+    date: string, 
+    readings: PostHeartRateData[]
+  ): Promise<void> {
+    if (readings.length === 0) return;
+    
+    const current = await redisRepository.getDailyMinMax(patientId, date);
+    const ttlSeconds = this.getSecondsUntilEndOfNextDay();
+    
+    // Find min and max from all readings in this batch
+    let minBpm = readings[0].bpm;
+    let maxBpm = readings[0].bpm;
+    let minTime = readings[0].timestamp;
+    let maxTime = readings[0].timestamp;
+    
+    for (const reading of readings) {
+      if (reading.bpm < minBpm) {
+        minBpm = reading.bpm;
+        minTime = reading.timestamp;
+      }
+      if (reading.bpm > maxBpm) {
+        maxBpm = reading.bpm;
+        maxTime = reading.timestamp;
+      }
+    }
+    
+    if (!current) {
+      // No existing cache, create new one
+      await redisRepository.setDailyMinMax(
+        patientId,
+        date,
+        minBpm,
+        maxBpm,
+        minTime,
+        maxTime,
+        ttlSeconds
+      );
+    } else {
+      // Update existing cache if we have new min/max
+      const isNewMin = minBpm < current.min;
+      const isNewMax = maxBpm > current.max;
+      
+      if (isNewMin || isNewMax) {
+        const finalMin = isNewMin ? minBpm : current.min;
+        const finalMax = isNewMax ? maxBpm : current.max;
+        const finalMinTime = isNewMin ? minTime : current.minTime;
+        const finalMaxTime = isNewMax ? maxTime : current.maxTime;
+        
+        await redisRepository.setDailyMinMax(
+          patientId,
+          date,
+          finalMin,
+          finalMax,
+          finalMinTime,
+          finalMaxTime,
+          ttlSeconds
+        );
+      }
+    }
+    
+    // Update aggregates in database
+    await this.upsertHeartRateAggregate(
+      patientId,
+      date,
+      minBpm,
+      new Date(minTime),
+      maxBpm,
+      new Date(maxTime),
     );
   }
 

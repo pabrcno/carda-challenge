@@ -3,7 +3,6 @@ import { z } from 'zod';
 import {
   healthResponseSchema,
   errorResponseSchema,
-  patientIdParamSchema,
   patientIdAndPeriodParamSchema,
 
   postHeartRateDataSchema,
@@ -13,13 +12,10 @@ import {
   heartRateChartDataSchema,
   bloodPressureChartDataSchema,
   weightChartDataSchema,
-  
-  latestHeartRateSchema,
-  selectHeartRateRecordSchema,
 
   insertPatientSchema,
   selectPatientSchema,
-  chartPeriodEnumSchema,
+
 } from './db/schema';
 
 const c = initContract();

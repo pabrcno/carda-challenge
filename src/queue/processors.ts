@@ -20,7 +20,6 @@ export async function processHeartRate(job: Job<PostHeartRateData>) {
   }
 }
 
-
 export async function processHeartRateBatch(job: Job<PostHeartRateData[]>) {
   const readings = job.data;
   

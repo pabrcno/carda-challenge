@@ -3,7 +3,6 @@ import {
   closeQueues 
 } from './queue-config';
 import { 
-  processHeartRate,
   processHeartRateBatch 
 } from './processors';
 
@@ -15,10 +14,9 @@ export class QueueWorker {
   }
 
   private setupProcessors() {
-    heartRateQueue.process('heart-rate-processing', processHeartRate);
     heartRateQueue.process('heart-rate-batch', processHeartRateBatch);
     
-    console.log('🔧 Heart rate queue processors set up successfully');
+    console.log('🔧 Heart rate batch queue processor set up successfully');
   }
 
   private setupEventHandlers() {
@@ -27,18 +25,18 @@ export class QueueWorker {
     });
 
     heartRateQueue.on('completed', (job) => {
-      console.log(`✅ Heart rate job ${job.id} completed successfully`);
+      console.log(`✅ Heart rate batch job ${job.id} completed successfully`);
     });
 
     heartRateQueue.on('failed', (job, err) => {
-      console.error(`❌ Heart rate job ${job?.id} failed:`, err.message);
+      console.error(`❌ Heart rate batch job ${job?.id} failed:`, err.message);
     });
 
     heartRateQueue.on('waiting', (jobId) => {
-      console.log(`⏳ Heart rate job ${jobId} waiting to be processed`);
+      console.log(`⏳ Heart rate batch job ${jobId} waiting to be processed`);
     });
 
-    console.log('🔧 Heart rate queue event handlers set up successfully');
+    console.log('🔧 Heart rate batch queue event handlers set up successfully');
   }
 
   async start() {

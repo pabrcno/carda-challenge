@@ -1,5 +1,6 @@
 import { db } from '../db/connection';
 import { patients, type DrizzleNewPatient } from '../db/schema';
+
 export class PatientError extends Error {
   constructor(
     message: string,

@@ -2,7 +2,7 @@ import Queue from 'bull';
 import 'dotenv/config';
 
 export const QUEUE_NAMES = {
-  HEART_RATE: 'heart-rate-processing',
+  HEART_RATE_BATCH: 'heart-rate-batch',
 } as const;
 
 const redisConfig = {
@@ -23,7 +23,7 @@ export const queueOptions: Queue.QueueOptions = {
   },
 };
 
-export const heartRateQueue = new Queue(QUEUE_NAMES.HEART_RATE, queueOptions);
+export const heartRateQueue = new Queue(QUEUE_NAMES.HEART_RATE_BATCH, queueOptions);
 
 export const queues = {
   heartRate: heartRateQueue,
@@ -31,5 +31,5 @@ export const queues = {
 
 export async function closeQueues() {
   await heartRateQueue.close();
-  console.log('🔌 Heart rate queue closed');
+  console.log('🔌 Heart rate batch queue closed');
 }
