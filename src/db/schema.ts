@@ -1,4 +1,4 @@
-import { pgTable, serial, varchar, timestamp, integer, real, date, index } from 'drizzle-orm/pg-core';
+import { pgTable, serial, varchar, timestamp, integer, real, date, index, pgEnum, jsonb, boolean } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import { createInsertSchema, createSelectSchema, createUpdateSchema } from 'drizzle-zod';
 import { z } from 'zod';
@@ -45,6 +45,56 @@ export const bloodPressureRecords = pgTable('blood_pressure_records', {
   index('blood_pressure_patient_idx').on(table.patientId),
   index('blood_pressure_recorded_at_idx').on(table.recordedAt),
 ]);
+
+
+const healthMetricsEnum = pgEnum('health_metrics_enum', ['heart_rate', 'blood_pressure', 'weight']);
+/* 
+   {
+    heart_rate: {
+      bpm: number,
+      timestamp: string,
+    },
+    blood_pressure: {
+      systolic: number,
+      diastolic: number,
+      timestamp: string,
+    },
+    weight: {
+      weightKg: number,
+      timestamp: string,
+    },
+   }
+  */
+
+ export type HealthMetrics = {
+  heart_rate: {
+    bpm: number,
+    timestamp: string,
+  },
+  blood_pressure: {
+    systolic: number,
+    diastolic: number,
+    timestamp: string,
+  },
+  weight: {
+    weightKg: number,
+    timestamp: string,
+  },
+};
+
+export const healthMetrics = pgTable('health_metrics', {
+  id: serial('id').primaryKey(),
+  patientId: integer('patient_id').notNull().references(() => patients.id, { onDelete: 'cascade' }),
+  metric: healthMetricsEnum('metric').notNull(),
+  // relations or optional values that adapt to each metric
+  value: jsonb('value').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => [
+  index('health_metrics_patient_idx').on(table.patientId),
+  index('health_metrics_metric_idx').on(table.metric),
+]);
+
+
 
 export const weightRecords = pgTable('weight_records', {
   id: serial('id').primaryKey(),

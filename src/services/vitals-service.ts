@@ -10,7 +10,6 @@ import {
   type DrizzleHeartRateAggregate,
   type DrizzleHeartRateRecord,
   type PostHeartRateData,
-  BloodPressureSummary,
   PostBloodPressureData,
   PostWeightData,
   WeightSummary,
@@ -67,7 +66,7 @@ export class VitalsService {
       if (!readingsByPatientAndDate.has(key)) {
         readingsByPatientAndDate.set(key, []);
       }
-      readingsByPatientAndDate.get(key)!.push(reading);
+      readingsByPatientAndDate.get(key)?.push(reading);
     }
     
     // Process each group
@@ -180,7 +179,7 @@ export class VitalsService {
     return result[0];
   }
 
-  async getBloodPressureChartData(patientId: number, period: ChartPeriod): Promise<BloodPressureSummary[]> {
+  async getBloodPressureChartData(patientId: number, period: ChartPeriod) {
     const { startDate } = this.getDateRange(period);
     
     const records = await db.select()
@@ -192,14 +191,33 @@ export class VitalsService {
         )
       )
       .orderBy(desc(bloodPressureRecords.recordedAt));
+      
+    const diastolicByDate: { [key: string]: number[] } = {};
+    const systolicByDate: { [key: string]: number[] } = {};
+  
 
-    return records.map(record => ({
-      recordedAt: record.recordedAt,
-      systolic: record.systolic,
-      diastolic: record.diastolic,
-    }));
+    for (const record of records) {
+      const date = record.recordedAt.toISOString().split('T')[0];
+      diastolicByDate[date] = [...(diastolicByDate[date] ?? []), record.diastolic] ;
+      systolicByDate[date] = [...(systolicByDate[date] ?? []), record.systolic] ;
+    } 
+
+
+    const diastolicAverages: { [key: string]: number } = {};
+    const systolicAverages: { [key: string]: number } = {};
+
+    for (const date in diastolicByDate) {
+      diastolicAverages[date] = diastolicByDate[date].reduce((acc, curr) => acc + curr, 0) / diastolicByDate[date].length;
+      systolicAverages[date] = systolicByDate[date].reduce((acc, curr) => acc + curr, 0) / systolicByDate[date].length;
+    }
+    
+    return {
+      diastolicMeasuments: diastolicAverages,
+      systolicMeasuments: systolicAverages,
+    }
   }
-
+  
+ 
   async storeWeightReading(data: PostWeightData): Promise<DrizzleWeightRecord> {
     const recordedAt = new Date(data.timestamp);
     
