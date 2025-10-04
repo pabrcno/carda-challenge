@@ -37,7 +37,7 @@ export class QueueService {
       }
       this.batchTimeout = setTimeout(() => {
         this.flushHeartRateBatch();
-      }, 500);
+      }, this.BATCH_FLUSH_INTERVAL);
     }
 
     return {
